@@ -50,6 +50,16 @@ class ReportWriterTest {
         assertTrue(t.contains("TPS averaged 12"));
     }
 
+    @Test void aTinyModIsNotCalledTheCulprit() {
+        Report r = slowServer();
+        r.server.blamedMod.clear();
+        r.server.blamedMod.put("minecraft", 97L);
+        r.server.blamedMod.put("clogger", 3L);
+        List<Findings.Finding> f = Findings.compute(r);
+        assertFalse(f.stream().anyMatch(x -> x.detail().contains("clogger")), f.toString());
+        assertTrue(f.get(0).title().contains("TPS averaged 12"));
+    }
+
     @Test void healthyRunSaysSo() {
         Report r = new Report();
         r.hasServer = true;

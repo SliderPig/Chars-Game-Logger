@@ -88,7 +88,7 @@ final class Session {
     private final Map<Long, String> threadNames = new HashMap<>();
     private long lastPartialMs = System.currentTimeMillis();
     private volatile long samplerCpuNs;
-    private long infoWallTotal, procWallTotal, secWallTotal;
+    private long infoWallTotal, procWallTotal, secWallTotal, cpuLoadWall, threadCpuWall, partialWall;
     private double lastDimCheckSec;
     private String clientDimName = "";
 
@@ -407,6 +407,7 @@ final class Session {
         }
     }
 
+    private long lastProcCpu = -1, nextSysCpuNs;
     private long prevSecNs = System.nanoTime();
     private long gcCountPrev, gcMsPrev;
     private long prevIn, prevOut;
@@ -436,9 +437,18 @@ final class Session {
         threadBuf.add(tmx.getThreadCount());
         try {
             var os = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-            double pc = os.getProcessCpuLoad(), sc = os.getCpuLoad();
-            if (pc >= 0) procBuf.add(pc * 100);
-            if (sc >= 0) sysBuf.add(sc * 100);
+            long pcpu = os.getProcessCpuTime(); // cheap: the whole game's CPU time so far
+            if (pcpu >= 0 && lastProcCpu >= 0) procBuf.add((pcpu - lastProcCpu) * 100.0 / (dt * 1e9 * Runtime.getRuntime().availableProcessors()));
+            lastProcCpu = pcpu;
+            // the machine-wide load is slow on Windows (tens of ms), so ask rarely and slow down further if it is dear
+            if (now >= nextSysCpuNs) {
+                long q0 = System.nanoTime();
+                double sc = os.getCpuLoad();
+                long took = System.nanoTime() - q0;
+                cpuLoadWall += took;
+                if (sc >= 0) sysBuf.add(sc * 100);
+                nextSysCpuNs = now + Math.max(5_000_000_000L, took * 300);
+            }
         } catch (Throwable t) { unavailable("CPU load: " + t); }
         long in = netServer.totalIn.sum() + netClient.totalIn.sum(), out = netServer.totalOut.sum() + netClient.totalOut.sum();
         if (netServer.connectionsEver() + netClient.connectionsEver() > 0) {
@@ -453,15 +463,21 @@ final class Session {
             else if (clientDim != null) { ents = clientDim.entities; chunks = clientDim.loadedChunks; }
         }
         synchronized (timeline) { timeline.add(new Report.Timeline(sec(), tps, mspt, fps, heap, ents, chunks)); }
-        if (++secondsDone % 5 == 0) threadCpuTick();
+        if (++secondsDone % 5 == 0) {
+            long z0 = System.nanoTime();
+            threadCpuTick();
+            threadCpuWall += System.nanoTime() - z0;
+        }
         if (System.currentTimeMillis() - lastPartialMs > 60_000 && !last) {
             lastPartialMs = System.currentTimeMillis();
+            long y0 = System.nanoTime();
             try {
                 Report r = build(true);
                 Path tmp = dir.resolve(baseName + ".partial.tmp");
                 Files.writeString(tmp, new ReportWriter(r, mods::pretty).text(), StandardCharsets.UTF_8);
                 Files.move(tmp, partialPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (Throwable t) { unavailable("partial file: " + t); }
+            partialWall += System.nanoTime() - y0;
         }
     }
 
@@ -592,7 +608,7 @@ final class Session {
         r.overheadPercentOfCore = (samplerCpu + hookNs.get()) * 100.0 / wall;
         r.overheadNote = String.format("Logger thread CPU %.2f s + event hooks/world scans %.2f s over %.0f s. %d stack samples; getting a stack snapshot blocked the sampled threads for %.1f ms in total (%.3f%% of the run, per thread).",
                 samplerCpu / 1e9, hookNs.get() / 1e9, wall / 1e9, passes, infoWallTotal / 1e6, infoWallTotal * 100.0 / wall)
-                + String.format(" Time spent: stack snapshots %.0f ms, sorting samples into the tree %.0f ms, per-second numbers %.0f ms.", infoWallTotal / 1e6, procWallTotal / 1e6, secWallTotal / 1e6);
+                + String.format(" Time spent: stack snapshots %.0f ms, sorting samples into the tree %.0f ms, per-second numbers %.0f ms (machine CPU load %.0f ms, thread CPU list %.0f ms, rolling partial file %.0f ms).", infoWallTotal / 1e6, procWallTotal / 1e6, secWallTotal / 1e6, cpuLoadWall / 1e6, threadCpuWall / 1e6, partialWall / 1e6);
         return r;
     }
 

@@ -46,6 +46,12 @@ final class Commands {
         c.getSource().sendSuccess(sup, false);
     }
 
+    /** The command word the player actually typed, so the hints match. */
+    private static String root(CommandContext<CommandSourceStack> c, boolean client) {
+        String in = c.getInput();
+        return client || in.startsWith("clogger ") || in.equals("clogger") ? "clogger" : "cloggerserver";
+    }
+
     private static int start(CommandContext<CommandSourceStack> c, String name, boolean client) {
         try {
             MinecraftServer server = client ? ClientAccess.singleplayerServer() : c.getSource().getServer();
@@ -55,7 +61,7 @@ final class Commands {
                 return 0;
             }
             String what = client ? (server != null ? "your game and the built-in server" : "your game (client)") : "the server";
-            say(c, Component.literal("Logging " + what + " now. Run /" + (client ? "clogger" : "cloggerserver") + " stop when you are done.").withStyle(ChatFormatting.LIGHT_PURPLE));
+            say(c, Component.literal("Logging " + what + " now. Run /" + root(c, client) + " stop when you are done.").withStyle(ChatFormatting.LIGHT_PURPLE));
             return 1;
         } catch (Throwable t) {
             CloggerMod.LOG.error("clogger start failed", t);
@@ -85,7 +91,7 @@ final class Commands {
 
     private static int status(CommandContext<CommandSourceStack> c, boolean client) {
         Session s = Session.current;
-        say(c, Component.literal(s == null ? "Not logging. /" + (client ? "clogger" : "cloggerserver") + " start [name] begins a run." : s.status()).withStyle(ChatFormatting.LIGHT_PURPLE));
+        say(c, Component.literal(s == null ? "Not logging. /" + root(c, client) + " start [name] begins a run." : s.status()).withStyle(ChatFormatting.LIGHT_PURPLE));
         return 1;
     }
 }
