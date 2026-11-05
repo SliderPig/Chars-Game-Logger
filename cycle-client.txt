@@ -1,2 +1,0 @@
-exit 0
-reports: ['C:\\Users\\black\\Downloads\\clogger\\run-real\\clogger\\2026-11-05_14-53-16_selftest.json', 'C:\\Users\\black\\Downloads\\clogger\\run-real\\clogger\\2026-11-05_14-53-16_selftest.txt']

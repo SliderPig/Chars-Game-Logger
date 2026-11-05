@@ -125,7 +125,7 @@ final class SystemInfo {
 
     private static List<String> bukkit() throws Exception {
         Class<?> bukkit;
-        try { bukkit = Class.forName("org.bukkit.Bukkit"); } catch (ClassNotFoundException e) { return List.of("Not a Bukkit/Arclight server (no plugin system)."); }
+        try { bukkit = Class.forName("org.bukkit.Bukkit"); } catch (ClassNotFoundException e) { return List.of("The Bukkit classes are not visible (normal on plain Forge or a client; on Arclight the line \"Server software\" above says arclight)."); }
         List<String> l = new ArrayList<>();
         Object srv = bukkit.getMethod("getServer").invoke(null);
         if (srv == null) return List.of("Bukkit classes exist but the Bukkit server is not up yet.");
