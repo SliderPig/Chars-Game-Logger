@@ -100,18 +100,23 @@ public final class ModMap {
             base = classifyClass(cls);
             cache.put(cls, base);
         }
-        if (method != null && method.indexOf('$') > 0 && !ready_isModBucket(base)) {
+        if (method != null && (method.startsWith("handler$") || method.startsWith("redirect$") || method.startsWith("modify") || method.startsWith("wrap")) && method.indexOf('$') > 0 && !isModBucket(base)) {
             // mixin handlers are called handler$abc000$modid$name
-            String[] parts = method.split("\\$");
-            for (int i = 1; i < parts.length; i++) {
-                String p = parts[i].toLowerCase(Locale.ROOT);
-                if (p.length() > 2 && modIds.contains(p)) return p;
+            int from = method.indexOf('$') + 1;
+            for (int i = 0; i < 3 && from > 0 && from < method.length(); i++) {
+                int to = method.indexOf('$', from);
+                if (to < 0) break;
+                if (i >= 1) {
+                    String p = method.substring(from, to).toLowerCase(Locale.ROOT);
+                    if (p.length() > 2 && modIds.contains(p)) return p;
+                }
+                from = to + 1;
             }
         }
         return base;
     }
 
-    private boolean ready_isModBucket(String b) { return modIds.contains(b) || b.startsWith("plugin:"); }
+    private boolean isModBucket(String b) { return modIds.contains(b) || b.startsWith("plugin:"); }
 
     private String classifyClass(String cls) {
         if (cls.startsWith("java.") || cls.startsWith("javax.") || cls.startsWith("jdk.") || cls.startsWith("sun.") || cls.startsWith("com.sun.")) return "(java)";

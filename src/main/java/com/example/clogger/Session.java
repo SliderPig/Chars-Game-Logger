@@ -88,7 +88,7 @@ final class Session {
     private final Map<Long, String> threadNames = new HashMap<>();
     private long lastPartialMs = System.currentTimeMillis();
     private volatile long samplerCpuNs;
-    private long infoWallTotal;
+    private long infoWallTotal, procWallTotal, secWallTotal;
     private double lastDimCheckSec;
     private String clientDimName = "";
 
@@ -368,7 +368,9 @@ final class Session {
             // aim for about 1% of a core, counting the time the JVM needs to stop the threads
             intervalNs = Math.max(20_000_000L, Math.min(250_000_000L, Math.max(cpuCost, infoWallNs / 2) * 100));
             if (t0 >= nextSecond) {
+                long q0 = System.nanoTime();
                 try { second(false); } catch (Throwable t) { unavailable("per-second numbers: " + t); }
+                secWallTotal += System.nanoTime() - q0;
                 nextSecond = t0 + 1_000_000_000L;
             }
             long sleep = intervalNs - (System.nanoTime() - t0);
@@ -399,7 +401,9 @@ final class Session {
         for (int i = 0; i < infos.length; i++) {
             ThreadInfo ti = infos[i];
             if (ti == null) continue;
+            long p0 = System.nanoTime();
             used.get(i).take(ti.getStackTrace(), ti.getThreadState(), mods, now);
+            procWallTotal += System.nanoTime() - p0;
         }
     }
 
@@ -587,7 +591,8 @@ final class Session {
         double wall = Math.max(1e9, System.nanoTime() - startNs);
         r.overheadPercentOfCore = (samplerCpu + hookNs.get()) * 100.0 / wall;
         r.overheadNote = String.format("Logger thread CPU %.2f s + event hooks/world scans %.2f s over %.0f s. %d stack samples; getting a stack snapshot blocked the sampled threads for %.1f ms in total (%.3f%% of the run, per thread).",
-                samplerCpu / 1e9, hookNs.get() / 1e9, wall / 1e9, passes, infoWallTotal / 1e6, infoWallTotal * 100.0 / wall);
+                samplerCpu / 1e9, hookNs.get() / 1e9, wall / 1e9, passes, infoWallTotal / 1e6, infoWallTotal * 100.0 / wall)
+                + String.format(" Time spent: stack snapshots %.0f ms, sorting samples into the tree %.0f ms, per-second numbers %.0f ms.", infoWallTotal / 1e6, procWallTotal / 1e6, secWallTotal / 1e6);
         return r;
     }
 
