@@ -52,3 +52,8 @@ tasks.named('jar', Jar) {
         ])
     }
 }
+
+// gradlew build -Psmoke: also compiles src/smoke (the in-game self test used by tools/run_real_client.py). Never part of the normal jar.
+if (project.hasProperty('smoke')) {
+    sourceSets.main.java.srcDir 'src/smoke/java'
+}
