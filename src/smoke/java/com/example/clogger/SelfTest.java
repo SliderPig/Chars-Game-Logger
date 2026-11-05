@@ -67,6 +67,11 @@ public final class SelfTest {
         if (inWorld == 460) cmd("tp @s ~ ~ ~40");
         if (inWorld == 480) cmd("tp @s ~ ~ ~-40");
         if (inWorld == 500) cmd("say " + "a log line");
+        if (inWorld == 520) {
+            var lg = org.apache.logging.log4j.LogManager.getLogger("SelfTestLogger");
+            for (int i = 0; i < 60; i++) lg.warn("spammy warning number {}", i);
+            lg.error("selftest error", new RuntimeException("boom"));
+        }
         if (inWorld == 120 + RUN_TICKS) cmd("clogger stop");
         if (inWorld == 120 + RUN_TICKS + 60) { CloggerMod.LOG.info("[SelfTest] done"); mc.stop(); }
     }

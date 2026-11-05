@@ -70,8 +70,10 @@ public final class Hooks {
         try {
             String line = e.getParseResults().getReader().getString();
             if (line.startsWith("clogger") || line.startsWith("cloggerserver")) return;
-            s.event("Command by " + e.getParseResults().getContext().getSource().getTextName() + ": /" + (line.length() > 120 ? line.substring(0, 120) + "..." : line));
+            var src = e.getParseResults().getContext().getSource();
             s.count("commands run");
+            if (src.getEntity() instanceof Player || src.getTextName().equals("Server")) // command blocks and functions are only counted
+                s.event("commands", 300, "Command by " + src.getTextName() + ": /" + (line.length() > 120 ? line.substring(0, 120) + "..." : line));
         } catch (Throwable ignored) { }
     }
 
@@ -80,7 +82,8 @@ public final class Hooks {
         Session s = Session.current;
         if (s == null || !s.hasServer) return;
         String t = e.getRawText();
-        s.event("Chat: <" + e.getUsername() + "> " + (t.length() > 100 ? t.substring(0, 100) + "..." : t));
+        s.count("chat messages");
+        s.event("chat", 300, "Chat: <" + e.getUsername() + "> " + (t.length() > 100 ? t.substring(0, 100) + "..." : t));
     }
 
     @SubscribeEvent
@@ -89,8 +92,8 @@ public final class Hooks {
         if (s == null || !s.hasServer) return;
         String id = e.getAdvancement().getId().toString();
         if (id.contains("/root") || id.startsWith("minecraft:recipes/")) return;
-        s.event("Advancement: " + e.getEntity().getGameProfile().getName() + " got " + id);
         s.count("advancements earned");
+        s.event("advancements", 200, "Advancement: " + e.getEntity().getGameProfile().getName() + " got " + id);
     }
 
     @SubscribeEvent

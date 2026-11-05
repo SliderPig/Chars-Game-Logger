@@ -162,11 +162,11 @@ public final class ReportWriter {
             table(sb, s.blamedMethods, inTick, 12, false);
             if (!s.entityCode.isEmpty()) {
                 sb.append("\nEntity code (declaring class of the entity method running; shared base classes show as themselves):\n");
-                table(sb, s.entityCode, inTick, 12, false);
+                table(sb, s.entityCode, inTick, 12, true);
             }
             if (!s.blockEntityCode.isEmpty()) {
                 sb.append("\nBlock entity code:\n");
-                table(sb, s.blockEntityCode, inTick, 12, false);
+                table(sb, s.blockEntityCode, inTick, 12, true);
             }
             sb.append("\n").append(server ? "Tick-time tree" : "Render-thread tree").append(" (percent of ").append(server ? "tick" : "frame").append(" samples; small branches folded):\n");
             sb.append(s.tree.render(1.5, 120, pretty));

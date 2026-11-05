@@ -54,13 +54,7 @@ def main():
     options = os.path.join(RUN, 'options.txt')
     if not os.path.exists(options):
         with open(options, 'w', encoding='utf-8') as f:
-            f.write('onboardAccessibility:false
-tutorialStep:none
-pauseOnLostFocus:false
-lang:en_us
-maxFps:260
-enableVsync:false
-')
+            f.write(chr(10).join(['onboardAccessibility:false', 'tutorialStep:none', 'pauseOnLostFocus:false', 'lang:en_us', 'maxFps:260', 'enableVsync:false']) + chr(10))
     built = sorted(glob.glob('build/libs/clogger-*.jar'), key=os.path.getmtime)[-1]
     shutil.copy(built, os.path.join(RUN, 'mods', 'clogger-smoke.jar'))
 

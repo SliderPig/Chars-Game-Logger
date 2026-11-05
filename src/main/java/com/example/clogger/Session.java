@@ -87,7 +87,8 @@ final class Session {
     private final Map<Long, long[]> threadCpu = new HashMap<>(); // id -> {lastCpu, total}
     private final Map<Long, String> threadNames = new HashMap<>();
     private long lastPartialMs = System.currentTimeMillis();
-    private long samplerCpuNs;
+    private volatile long samplerCpuNs;
+    private long infoWallTotal;
     private double lastDimCheckSec;
     private String clientDimName = "";
 
@@ -213,6 +214,16 @@ final class Session {
     }
 
     double sec() { return (System.nanoTime() - startNs) / 1e9; }
+
+    private final Map<String, Integer> eventKinds = new HashMap<>();
+
+    /** Like event(), but at most `limit` of this kind are written; the rest are only counted. */
+    void event(String kind, int limit, String text) {
+        int n;
+        synchronized (eventKinds) { n = eventKinds.merge(kind, 1, Integer::sum); }
+        if (n <= limit) event(text);
+        else if (n == limit + 1) event("(more " + kind + " not listed, see the counts below)");
+    }
 
     void event(String text) {
         synchronized (events) {
@@ -342,24 +353,30 @@ final class Session {
 
     // ---------------------------------------------------------------- the logger thread: stack samples and per-second numbers
 
+    private volatile long infoWallNs;
+    private long passes;
+
     private void loop() {
         long nextSecond = System.nanoTime() + 1_000_000_000L;
         long intervalNs = 20_000_000L;
-        long lastSecNs = System.nanoTime();
         while (running) {
             long t0 = System.nanoTime();
+            long c0 = tmx.getCurrentThreadCpuTime();
             try { sample(t0); } catch (Throwable t) { unavailable("profiler: " + t); }
-            long cost = System.nanoTime() - t0;
-            intervalNs = Math.max(20_000_000L, Math.min(250_000_000L, cost * 100));
+            long cpuCost = Math.max(0, tmx.getCurrentThreadCpuTime() - c0);
+            passes++;
+            // aim for about 1% of a core, counting the time the JVM needs to stop the threads
+            intervalNs = Math.max(20_000_000L, Math.min(250_000_000L, Math.max(cpuCost, infoWallNs / 2) * 100));
             if (t0 >= nextSecond) {
                 try { second(false); } catch (Throwable t) { unavailable("per-second numbers: " + t); }
                 nextSecond = t0 + 1_000_000_000L;
             }
             long sleep = intervalNs - (System.nanoTime() - t0);
             if (sleep > 0) {
-                try { Thread.sleep(sleep / 1_000_000L, (int) (sleep % 1_000_000L)); } catch (InterruptedException e) { return; }
+                try { Thread.sleep(sleep / 1_000_000L, (int) (sleep % 1_000_000L)); } catch (InterruptedException e) { break; }
             }
         }
+        try { samplerCpuNs = tmx.getCurrentThreadCpuTime(); } catch (Throwable ignored) { }
     }
 
     private void sample(long now) {
@@ -375,7 +392,10 @@ final class Session {
         }
         if (ids.isEmpty()) return;
         long[] arr = ids.stream().mapToLong(Long::longValue).toArray();
+        long w0 = System.nanoTime();
         ThreadInfo[] infos = tmx.getThreadInfo(arr, 90);
+        infoWallNs = System.nanoTime() - w0;
+        infoWallTotal += infoWallNs;
         for (int i = 0; i < infos.length; i++) {
             ThreadInfo ti = infos[i];
             if (ti == null) continue;
@@ -417,7 +437,7 @@ final class Session {
             if (sc >= 0) sysBuf.add(sc * 100);
         } catch (Throwable t) { unavailable("CPU load: " + t); }
         long in = netServer.totalIn.sum() + netClient.totalIn.sum(), out = netServer.totalOut.sum() + netClient.totalOut.sum();
-        if (netServer.connections() + netClient.connections() > 0) {
+        if (netServer.connectionsEver() + netClient.connectionsEver() > 0) {
             inBuf.add((in - prevIn) / dt);
             outBuf.add((out - prevOut) / dt);
         }
@@ -562,13 +582,12 @@ final class Session {
         synchronized (timeline) { r.timeline.addAll(timeline); }
         crashReports(r);
         // overhead
-        long samplerCpu = 0;
-        try { if (thread != null) samplerCpu = Math.max(0, tmx.getThreadCpuTime(thread.getId())); } catch (Throwable ignored) { }
-        if (samplerCpu == 0) samplerCpu = samplerCpuNs;
+        long samplerCpu = samplerCpuNs;
+        try { if (samplerCpu == 0 && thread != null) samplerCpu = Math.max(0, tmx.getThreadCpuTime(thread.getId())); } catch (Throwable ignored) { }
         double wall = Math.max(1e9, System.nanoTime() - startNs);
         r.overheadPercentOfCore = (samplerCpu + hookNs.get()) * 100.0 / wall;
-        r.overheadNote = String.format("Logger thread CPU %.1f s + event hooks/world scans %.1f s over %.0f s. Stopping the stack sampler for a moment (a JVM safepoint) is not counted here.",
-                samplerCpu / 1e9, hookNs.get() / 1e9, wall / 1e9);
+        r.overheadNote = String.format("Logger thread CPU %.2f s + event hooks/world scans %.2f s over %.0f s. %d stack samples; getting a stack snapshot blocked the sampled threads for %.1f ms in total (%.3f%% of the run, per thread).",
+                samplerCpu / 1e9, hookNs.get() / 1e9, wall / 1e9, passes, infoWallTotal / 1e6, infoWallTotal * 100.0 / wall);
         return r;
     }
 
@@ -587,11 +606,11 @@ final class Session {
     private void netFill(Report.Side s, NetCount n, String what) {
         n.in.forEach((k, v) -> s.packetsIn.put(k, v.sum()));
         n.out.forEach((k, v) -> s.packetsOut.put(k, v.sum()));
-        if (n.connections() == 0) {
+        if (n.connectionsEver() == 0) {
             s.networkNote = "No " + what + " were counted (nobody connected while logging, or the connection was not reachable).";
             return;
         }
-        s.networkNote = "Counted packets on " + n.connections() + " " + what + " (packet counts only, not bytes).";
+        s.networkNote = "Counted packets on " + n.connectionsEver() + " " + what + " (packet counts only, not bytes).";
         s.packetsInPerSec = Stats.summarize(inBuf.toArray());
         s.packetsOutPerSec = Stats.summarize(outBuf.toArray());
     }

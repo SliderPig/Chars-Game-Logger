@@ -34,7 +34,9 @@ public final class Findings {
     private static String top(Map<String, Long> m, boolean skipBase) {
         String best = null;
         long bv = 0;
+        long all = sum(m);
         for (var e : m.entrySet()) if (e.getValue() > bv && !(skipBase && BASE.contains(e.getKey()))) { best = e.getKey(); bv = e.getValue(); }
+        if (skipBase && bv * 100 < all * 8) return null; // a mod under 8% is not a culprit
         return best;
     }
 

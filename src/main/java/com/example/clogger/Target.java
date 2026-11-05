@@ -64,7 +64,7 @@ final class Target {
         String[] mod = new String[n];
         for (int i = n - 1; i >= 0; i--) { // root first
             StackTraceElement e = st[i];
-            String c = e.getClassName();
+            String c = clean(e.getClassName());
             cls[i] = c;
             mod[i] = mods.classify(c, e.getMethodName());
             frames.add(c + "#" + e.getMethodName());
@@ -105,6 +105,12 @@ final class Target {
             }
         }
         remember(new Sample(nowNs, blame, where));
+    }
+
+    /** Lambda classes get a new name every run (Foo$$Lambda$8386/0x0000...); keep just Foo$$Lambda. */
+    static String clean(String c) {
+        int i = c.indexOf("$$Lambda");
+        return i < 0 ? c : c.substring(0, i + 8);
     }
 
     static String simple(String c) { return c.substring(c.lastIndexOf('.') + 1); }

@@ -76,6 +76,15 @@ final class SystemInfo {
     }
 
     static String cpuName() {
+        try {
+            if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                Process p = new ProcessBuilder("reg", "query", "HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", "/v", "ProcessorNameString").redirectErrorStream(true).start();
+                String out = new String(p.getInputStream().readAllBytes());
+                p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS);
+                int i = out.indexOf("REG_SZ");
+                if (i > 0) return out.substring(i + 6).trim();
+            }
+        } catch (Throwable ignored) { }
         String env = System.getenv("PROCESSOR_IDENTIFIER");
         if (env != null) return env;
         try {

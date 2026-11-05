@@ -57,6 +57,7 @@ final class NetCount {
     void attach(Channel ch) {
         if (ch == null || channels.contains(ch)) return;
         channels.add(ch);
+        ever++;
         ch.eventLoop().execute(() -> {
             try {
                 if (ch.pipeline().get(NAME) == null && ch.pipeline().get("packet_handler") != null) ch.pipeline().addBefore("packet_handler", NAME, new Handler());
@@ -75,5 +76,7 @@ final class NetCount {
         channels.clear();
     }
 
-    int connections() { return channels.size(); }
+    private volatile int ever;
+
+    int connectionsEver() { return ever; }
 }
