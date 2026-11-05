@@ -1,0 +1,29 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+authors="Char"
+modId="clogger"
+version="${file.jarVersion}"
+displayName="{C} Char's Game Logger"
+# Optional on either side: works on your PC alone, on a server alone, or both.
+displayTest="IGNORE_ALL_VERSION"
+description='''
+/clogger start, /clogger stop: writes a readable report about how the game ran (TPS, FPS, lag spikes,
+which mod is slow, entities, memory, errors) to the clogger folder in the game folder.
+'''
+
+[[dependencies.clogger]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.clogger]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
