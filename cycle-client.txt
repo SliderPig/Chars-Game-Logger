@@ -1,0 +1,9 @@
+heavy.sh: queue busy, run the same command again
+heavy.sh: queue busy, run the same command again
+heavy.sh: queue busy, run the same command again
+heavy.sh: queue busy, run the same command again
+heavy.sh: queue busy, run the same command again
+heavy.sh: queue busy, run the same command again
+heavy.sh: queue busy, run the same command again
+exit 0
+reports: ['C:\\Users\\black\\Downloads\\clogger\\run-real\\clogger\\2026-11-05_16-12-18_selftest.json', 'C:\\Users\\black\\Downloads\\clogger\\run-real\\clogger\\2026-11-05_16-12-18_selftest.txt']

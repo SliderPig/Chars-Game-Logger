@@ -78,7 +78,7 @@ def main():
                 out.extend(fill(x) for x in ([v] if isinstance(v, str) else v))
         return out
 
-    cmd = [JAVA, '-Xmx2500M', '-Dclogger.selftest=true'] + flat(d['arguments']['jvm']) + [d['mainClass']] + flat(d['arguments']['game']) + ['--width', '1280', '--height', '720']
+    cmd = [JAVA, '-Xmx2500M', '-Dclogger.selftest=true', '-Dclogger.partialSeconds=20'] + flat(d['arguments']['jvm']) + [d['mainClass']] + flat(d['arguments']['game']) + ['--width', '1280', '--height', '720']
     with open(os.path.join(RUN, 'launch.log'), 'w', encoding='utf-8', errors='replace') as log:
         try:
             result = subprocess.run(cmd, cwd=RUN, stdout=log, stderr=subprocess.STDOUT, timeout=TIMEOUT)

@@ -51,6 +51,7 @@ final class Session {
     final ModMap mods = new ModMap();
     final Target serverT = new Target("Server thread", true), clientT = new Target("Render thread", false);
 
+    static final long PARTIAL_MS = Long.getLong("clogger.partialSeconds", 60L) * 1000L;
     static final double SPIKE_MS = Double.parseDouble(System.getProperty("clogger.spikeMs", "100"));
 
     private final Stats.Buf msptBuf = new Stats.Buf(300_000), tpsBuf = new Stats.Buf(50_000), frameBuf = new Stats.Buf(300_000), fpsBuf = new Stats.Buf(50_000), ctickBuf = new Stats.Buf(100_000),
@@ -204,6 +205,8 @@ final class Session {
         }
         return txt;
     }
+
+    boolean partialExists() { return Files.exists(partialPath()); }
 
     Path partialPath() { return dir.resolve(baseName + ".partial.txt"); }
 
@@ -366,7 +369,7 @@ final class Session {
             long cpuCost = Math.max(0, tmx.getCurrentThreadCpuTime() - c0);
             passes++;
             // aim for about 1% of a core, counting the time the JVM needs to stop the threads
-            intervalNs = Math.max(20_000_000L, Math.min(250_000_000L, Math.max(cpuCost, infoWallNs / 2) * 100));
+            intervalNs = Math.max(30_000_000L, Math.min(250_000_000L, Math.max(cpuCost, infoWallNs / 2) * 100));
             if (t0 >= nextSecond) {
                 long q0 = System.nanoTime();
                 try { second(false); } catch (Throwable t) { unavailable("per-second numbers: " + t); }
@@ -468,7 +471,7 @@ final class Session {
             threadCpuTick();
             threadCpuWall += System.nanoTime() - z0;
         }
-        if (System.currentTimeMillis() - lastPartialMs > 60_000 && !last) {
+        if (System.currentTimeMillis() - lastPartialMs > PARTIAL_MS && !last) {
             lastPartialMs = System.currentTimeMillis();
             long y0 = System.nanoTime();
             try {

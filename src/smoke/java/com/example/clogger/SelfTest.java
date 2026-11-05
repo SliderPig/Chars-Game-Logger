@@ -72,6 +72,7 @@ public final class SelfTest {
             for (int i = 0; i < 60; i++) lg.warn("spammy warning number {}", i);
             lg.error("selftest error", new RuntimeException("boom"));
         }
+        if (inWorld == 120 + 900) CloggerMod.LOG.info("[SelfTest] rolling partial file exists: {}", Session.current != null && Session.current.partialExists());
         if (inWorld == 120 + RUN_TICKS) cmd("clogger stop");
         if (inWorld == 120 + RUN_TICKS + 60) { CloggerMod.LOG.info("[SelfTest] done"); mc.stop(); }
     }
